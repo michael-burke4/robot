@@ -24,7 +24,7 @@ YELLOW_UPPER = np.array([179, 215, 255])
 GREEN_LOWER = np.array([0,23,8])
 GREEN_UPPER = np.array([78, 255, 60])
 
-RED_LOWER = np.array([0,135,107])
+RED_LOWER = np.array([0,135,90])
 RED_UPPER = np.array([4, 228, 255])
 
 CAMERA_CENTER = 165.42
