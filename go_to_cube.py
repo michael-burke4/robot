@@ -88,18 +88,15 @@ async def run(robot: cozmo.robot.Robot):
                         consecutive_lost += 1
                 else:
                     speeds = calc_speed(cube)
-                    print("SIZE", cube.size)
+                    # print("SIZE", cube.size)
                     consecutive_lost = 0
                     await robot.drive_wheels(speeds[0], speeds[1], None, None, 1.4)
-                    # robot.drive_wheel_motors(speeds[0], speeds[1])
-                # robot.drive_wheel_motors(speeds[0], speeds[1])
 
     except KeyboardInterrupt:
         print("")
         print("Exit requested by user")
     except cozmo.RobotBusy as e:
         print(e)
-    #cv2.destroyAllWindows()
 
 def calc_speed(cube):
     if (cube.size > 90):
