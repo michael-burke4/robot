@@ -26,27 +26,31 @@ class CozmoMachine(StateMachine):
 
     def on_enter_searching(self):
         print("searching!")
+        self.robot.drive_wheels(l_wheel_speed=10, r_wheel_speed=-10)
+        while True:
+            time.sleep(.1)
+            objs = self.robot.world.visible_objects
+            for obj in objs:
+                if obj.object_type == CustomObjectTypes.CustomType01:
+                    self.find()
     def on_enter_approaching(self):
-        print("approaching!")
+        self.robot.stop_all_motors()
+        while True:
+            time.sleep(.1)
+            print("I FOUND THE CUBE!")
     def on_enter_waiting(self):
         print("waiting!")
 
+    def __init__(self, robot):
+        self.robot = robot
+        super().__init__()
 
 
-# def state0(box, robot):
-#     bpos = box.pose.position
-#     rpos = robot.pose.position
-#     b_angle = np.arctan(bpos.y / bpos.x)
-#     r_angle = robot.pose.rotation.angle_z.radians
-#     print(r_angle, b_angle)
 
 
-machine = CozmoMachine()
+
+
 def run(robot: cozmo.robot.Robot):
-    seen = False
-    last = False
-    # robot.add_event_handler(cozmo.objects.EvtObjectObserved, handle_object_appeared)
-    # robot.add_event_handler(cozmo.objects.EvtObjectDisappeared, handle_object_disappeared)
 
     circle_cube = robot.world.define_custom_cube(CustomObjectTypes.CustomType00,
                                               CustomObjectMarkers.Circles2,
@@ -56,64 +60,6 @@ def run(robot: cozmo.robot.Robot):
                                               CustomObjectMarkers.Diamonds2,
                                               44,
                                               30, 30, True)
-    while True:
-        global machine
-        time.sleep(.2)
-        last = seen
-        looped = False
-        objects = robot.world.visible_objects
-        for obj in objects:
-            looped = True
-            if obj.object_type == CustomObjectTypes.CustomType01:
-                seen = True
-                break
-            seen = False
-        if looped == False:
-            seen = False
-        if last != seen:
-            if seen == True:
-                machine.find()
-            if seen == False:
-                machine.lose()
-        # diamond_angle = 1000
-        # found_diamond = False
-        # for obj in objects:
-        #     if obj.object_type == CustomObjectTypes.CustomType01:
-        #         state0(obj, robot)
-        #         return
-
-       #  robot_angle = robot.pose.rotation.angle_z.radians
-       #  print("going...", robot_angle, diamond_angle)
-       #  robot.drive_wheels(10, -10)
-       #  if (np.abs(robot_angle - diamond_angle) < .15):
-       #      print("nice")
-       #      if not flip:
-       #          robot.stop_all_motors()
-       #          time.sleep(3)
-       #      flip = True
-       #  if flip:
-       #      print("DIST:", dist)
-       #      robot.drive_wheels((dist - 75)/4, (dist - 75)/4)
-       #      if dist < 120:
-       #          robot.stop_all_motors()
-       #          break
-
+    machine = CozmoMachine(robot)
 
 cozmo.run_program(run, use_3d_viewer=True, use_viewer = True, force_viewer_on_top = True)
-
-# def handle_object_appeared(evt, **kw):
-#     global seen
-#     seen = True
-    # machine.cycle()
-    # if isinstance(evt.obj, CustomObject):
-    #     pass
-    #     # print("Cozmo is seeing a %s" % str(evt.obj.object_type))
-
-
-# def handle_object_disappeared(evt, **kw):
-#     global seen
-#     seen = False
-    # machine.cycle()
-    # if isinstance(evt.obj, CustomObject):
-    #     pass
-    #     print("Cozmo stopped seeing a %s" % str(evt.obj.object_type))
