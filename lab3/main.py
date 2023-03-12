@@ -21,6 +21,9 @@ from statemachine import State, StateMachine
 from PIL import Image, ImageDraw
 import numpy as np
 
+# This get_face_images() function also borrows heavily from
+# The SDK examples github repo. This example in particular:
+# https://github.com/anki/cozmo-python-sdk/blob/master/examples/tutorials/02_cozmo_face/01_cozmo_face_image.py
 def get_face_images():
     current_directory = os.path.dirname(os.path.realpath(__file__))
     img_0 = os.path.join(current_directory, "faces", "approach.png")
