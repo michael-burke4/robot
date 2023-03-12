@@ -28,23 +28,18 @@ def transform(rob_glob_pose, box_glob_pose):
                             [1]])
     return np.matmul(T_world_to_robot, box_glob_p)
 
-# returns 0 if centered, -1 if to the left, 1 if to the right.
-
 class CozmoMachine(StateMachine):
     searching = State('Searching', initial=True)
-    centering = State('Centering')
     approaching = State('Approaching')
     waiting = State('Waiting')
 
-    center = searching.to(centering)
-    lose_track = centering.to(searching)
-    begin_approach = centering.to(approaching)
-    wait = approaching.to(waiting)
-    lose_center = approaching.to(centering)
+    approach = searching.to(approaching)
+    lose_track = approaching.to(searching)
+    enter_wait = approaching.to(waiting)
 
     def on_enter_searching(self):
         print("searching!")
-        #self.robot.say_text("Searching").wait_for_completed()
+        self.robot.say_text("Searching").wait_for_completed()
         # found = False
         wheelspeed = 10
         turning_cw = True
@@ -71,59 +66,50 @@ class CozmoMachine(StateMachine):
                                 turning_cw = False
                         else:
                             self.robot.stop_all_motors()
-                            time.sleep(5)
-                            print("done sleepin!")
-                            return
-                            
-            except:
-                print("SHOULDN'T GET HERE OFTEN!")
-                pass
-        # self.center()
-
-    def on_enter_centering(self):
-        print("Centering!")
-        #self.robot.say_text("Centering").wait_for_completed()
-        centered = False
-        still_see = True
-        self.robot.drive_wheels(10, -10)
-        while (not centered) and still_see:
-            time.sleep(.1)
-            objs = self.robot.world.visible_objects
-            still_see = False
-            try:
-                for obj in objs:
-                    if obj.object_type == CustomObjectTypes.CustomType01:
-                        still_see = True
-                        center_status = check_center(obj, self.robot)
-                        if center_status == 0:
                             centered = True
-                            print("GOT HERE!")
-                            self.robot.stop_all_motors()
-                            while True:
-                                time.sleep(.1)
-                                pass
-                        self.robot.drive_wheels(center_status * 10, center_status * -10)
             except:
-                print("SHOULDNT REALLY  GET HERE")
+                print("Error occurred - hopefully just lost track of an obj mid-loop?")
                 pass
-        if not still_see:
-            self.robot.stop_all_motors()
-            print("LOSING TRACK!")
-            self.lose_track()
-        if centered:
-            self.begin_approach()
+        self.approach()
 
     def on_enter_approaching(self):
-        self.robot.stop_all_motors()
         self.robot.say_text("approaching").wait_for_completed()
         print("Approaching...")
         self.robot.drive_wheels(10, 10)
-        while True:
-            pass
+        time.sleep(1)
+        seen = True
+        close = False
+        while seen and not close:
+            time.sleep(.05)
+            objs = self.robot.world.visible_objects
+            seen = False
+            try:
+                for obj in objs:
+                    if obj.object_type == CustomObjectTypes.CustomType01:
+                        seen = True
+                        box_rel_pose = transform(self.robot.pose, obj.pose)
+                        dist = np.sqrt(box_rel_pose[0] ** 2 + box_rel_pose[1] ** 2)
+                        rel_angle = np.arctan(box_rel_pose[1] / box_rel_pose[0])
+                        print(rel_angle)
+                        if (np.abs(rel_angle) > .2):
+                            seen = False
+                        # print(dist)
+                        if dist <= 125:
+                            close = True
+            except:
+                print("Error occurred - hopefully just lost track of an obj mid-loop?")
+        if close:
+            self.robot.stop_all_motors()
+            self.enter_wait()
+        else:
+            self.robot.stop_all_motors()
+            self.lose_track()
 
     def on_enter_waiting(self):
         print("waiting!")
+        self.robot.say_text("Waiting!").wait_for_completed()
         while True:
+            time.sleep(.05)
             pass
 
     def __init__(self, robot):
