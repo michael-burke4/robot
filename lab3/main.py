@@ -67,11 +67,17 @@ def transform(rob_glob_pose, box_glob_pose):
 class CozmoMachine(StateMachine):
     searching = State('Searching', initial=True)
     approaching = State('Approaching')
-    waiting = State('Waiting')
+    hunting_left = State("Hunting Left")
+    hunting_right = State("Hunting Right")
+    chasing = State("Chasing")
 
     approach = searching.to(approaching)
     lose_track = approaching.to(searching)
-    enter_wait = approaching.to(waiting)
+    begin_hunt = approaching.to(hunting_left)
+    start_chase_l = hunting_left.to(chasing)
+    start_chase_r = hunting_right.to(chasing)
+    lose_l = chasing.to(hunting_left)
+    lose_r = chasing.to(hunting_right)
 
     def on_enter_searching(self):
         print("searching!")
@@ -140,21 +146,74 @@ class CozmoMachine(StateMachine):
         print("leaving approaching...")
         if close:
             self.robot.stop_all_motors()
-            self.enter_wait()
+            time.sleep(1)
+            self.begin_hunt()
         else:
             self.robot.stop_all_motors()
             self.lose_track()
 
-    def on_enter_waiting(self):
-        print("waiting!")
-        self.robot.say_text("Waiting!").wait_for_completed()
-        while True:
+    def on_enter_hunting_left(self):
+        print("hunting left")
+        self.robot.display_oled_face_image(self.faces[2], duration_ms=5000)
+        self.robot.drive_wheels(-10, 10)
+        self.turned_left = True
+        seen = False
+        while not seen:
             time.sleep(.05)
-            pass
+            objs = self.robot.world.visible_objects
+            try:
+                for obj in objs:
+                    if obj.object_type == CustomObjectTypes.CustomType00:
+                        seen = True
+            except:
+                print("Shouldn't get here often, likely lost track of an object while looping over objs")
+        self.robot.stop_all_motors()
+        print("leaving hunt left")
+        self.start_chase_l()
+
+    def on_enter_hunting_right(self):
+        print("hunting right")
+        self.robot.display_oled_face_image(self.faces[3], duration_ms=5000)
+        self.robot.drive_wheels(10, -10)
+        self.turned_left = False
+        seen = False
+        while not seen:
+            time.sleep(.05)
+            objs = self.robot.world.visible_objects
+            try:
+                for obj in objs:
+                    if obj.object_type == CustomObjectTypes.CustomType00:
+                        seen = True
+            except:
+                print("Shouldn't get here often, likely lost track of an object while looping over objs")
+        print("leaving hunt right")
+        self.start_chase_r()
+
+    def on_enter_chasing(self):
+        print("Chasing!!")
+        self.robot.display_oled_face_image(self.faces[1], duration_ms=5000)
+        seen = False
+        while not seen or True:
+            time.sleep(.05)
+            objs = self.robot.world.visible_objects
+            try:
+                for obj in objs:
+                    if obj.object_type == CustomObjectTypes.CustomType00:
+                        seen = True
+            except:
+                print("Shouldn't get here often, likely lost track of an object while looping over objs")
+        print("leaving chasing")
+    #def on_enter_waiting(self):
+        #print("waiting!")
+        #self.robot.say_text("Waiting!").wait_for_completed()
+        #while True:
+        #   time.sleep(.05)
+        #   pass
 
     def __init__(self, robot):
         self.robot = robot
         self.faces = get_face_images()
+        self.turned_left = True
         super().__init__()
 
 
