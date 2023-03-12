@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# This code follows instruction provided by a cozmo SDK example provided publicly on github, available at
+# https://github.com/anki/cozmo-python-sdk/blob/master/examples/tutorials/04_cubes_and_objects/09_custom_objects.py
+# to register custom blocks.
 
 # this stackoverflow link shows how to disable warnings. https://stackoverflow.com/a/50519680
 # the cozmo sdk code is out of date so I kept getting deprecation warnings. Nothing was fixing
@@ -8,6 +11,7 @@ import warnings
 def warn(*args, **kwargs):
     pass
 warnings.warn = warn
+
 import time
 import cozmo
 from cozmo.objects import CustomObject, CustomObjectMarkers, CustomObjectTypes
@@ -70,6 +74,7 @@ class CozmoMachine(StateMachine):
             except:
                 print("Error occurred - hopefully just lost track of an obj mid-loop?")
                 pass
+        print("leaving searching...")
         self.approach()
 
     def on_enter_approaching(self):
@@ -90,7 +95,7 @@ class CozmoMachine(StateMachine):
                         box_rel_pose = transform(self.robot.pose, obj.pose)
                         dist = np.sqrt(box_rel_pose[0] ** 2 + box_rel_pose[1] ** 2)
                         rel_angle = np.arctan(box_rel_pose[1] / box_rel_pose[0])
-                        print(rel_angle)
+                        # print(rel_angle)
                         if (np.abs(rel_angle) > .2):
                             seen = False
                         # print(dist)
@@ -98,6 +103,7 @@ class CozmoMachine(StateMachine):
                             close = True
             except:
                 print("Error occurred - hopefully just lost track of an obj mid-loop?")
+        print("leaving approaching...")
         if close:
             self.robot.stop_all_motors()
             self.enter_wait()
