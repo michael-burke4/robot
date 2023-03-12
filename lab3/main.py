@@ -12,11 +12,43 @@ def warn(*args, **kwargs):
     pass
 warnings.warn = warn
 
+import sys
+import os
 import time
 import cozmo
 from cozmo.objects import CustomObject, CustomObjectMarkers, CustomObjectTypes
 from statemachine import State, StateMachine
+from PIL import Image, ImageDraw
 import numpy as np
+
+def get_face_images():
+    current_directory = os.path.dirname(os.path.realpath(__file__))
+    img_0 = os.path.join(current_directory, "faces", "approach.png")
+    img_1 = os.path.join(current_directory, "faces", "chasing.png")
+    img_2 = os.path.join(current_directory, "faces", "L.png")
+    img_3 = os.path.join(current_directory, "faces", "R.png")
+    img_4 = os.path.join(current_directory, "faces", "searching.png")
+    img_5 = os.path.join(current_directory, "faces", "waiting.png")
+    image_settings = [(img_0, Image.NEAREST),
+                      (img_1, Image.NEAREST),
+                      (img_2, Image.NEAREST),
+                      (img_3, Image.NEAREST),
+                      (img_4, Image.NEAREST),
+                      (img_5, Image.NEAREST),]
+    face_images = []
+    for image_name, resampling_mode in image_settings:
+        image = Image.open(image_name)
+
+        # resize to fit on Cozmo's face screen
+        resized_image = image.resize(cozmo.oled_face.dimensions(), resampling_mode)
+
+        # convert the image to the format used by the oled screen
+        face_image = cozmo.oled_face.convert_image_to_screen_data(resized_image,
+                                                                 invert_image=True)
+        face_images.append(face_image)
+        
+    return face_images
+
 
 def transform(rob_glob_pose, box_glob_pose):
     rob_global_angle = rob_glob_pose.rotation.angle_z.radians
@@ -44,6 +76,7 @@ class CozmoMachine(StateMachine):
     def on_enter_searching(self):
         print("searching!")
         self.robot.say_text("Searching").wait_for_completed()
+        self.robot.display_oled_face_image(self.faces[4], duration_ms=500).wait_for_completed()
         # found = False
         wheelspeed = 10
         turning_cw = True
@@ -79,6 +112,7 @@ class CozmoMachine(StateMachine):
 
     def on_enter_approaching(self):
         self.robot.say_text("approaching").wait_for_completed()
+        self.robot.display_oled_face_image(self.faces[0], duration_ms=500).wait_for_completed()
         print("Approaching...")
         self.robot.drive_wheels(10, 10)
         time.sleep(1)
@@ -120,6 +154,7 @@ class CozmoMachine(StateMachine):
 
     def __init__(self, robot):
         self.robot = robot
+        self.faces = get_face_images()
         super().__init__()
 
 
@@ -137,7 +172,6 @@ def run(robot: cozmo.robot.Robot):
                                               CustomObjectMarkers.Diamonds2,
                                               44,
                                               31, 31, True)
-    
     machine = CozmoMachine(robot)
 
 cozmo.run_program(run, use_3d_viewer=True, use_viewer = True, force_viewer_on_top = True)
