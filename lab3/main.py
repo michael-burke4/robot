@@ -123,12 +123,15 @@ class CozmoMachine(StateMachine):
         self.robot.say_text("approaching").wait_for_completed()
         self.robot.display_oled_face_image(self.faces[0], duration_ms=500).wait_for_completed()
         print("Approaching...")
-        self.robot.drive_wheels(10, 10)
         time.sleep(1)
         seen = True
         close = False
         while seen and not close:
-            time.sleep(.05)
+            time.sleep(.1)
+            self.robot.drive_wheels(10, 11, None, None, 3)
+            #print("stopping!")
+            self.robot.stop_all_motors()
+            # self.robot.world.
             objs = self.robot.world.visible_objects
             seen = False
             try:
@@ -139,7 +142,7 @@ class CozmoMachine(StateMachine):
                         dist = np.sqrt(box_rel_pose[0] ** 2 + box_rel_pose[1] ** 2)
                         rel_angle = np.arctan(box_rel_pose[1] / box_rel_pose[0])
                         # print(rel_angle)
-                        if (np.abs(rel_angle) > .2):
+                        if (np.abs(rel_angle) > .16):
                             seen = False
                         # print(dist)
                         if dist <= 125:
@@ -158,7 +161,7 @@ class CozmoMachine(StateMachine):
     def on_enter_hunting_left(self):
         print("hunting left")
         self.robot.display_oled_face_image(self.faces[2], duration_ms=5000)
-        self.robot.drive_wheels(-10, 10)
+        self.robot.drive_wheel_motors(-10, 10)
         self.turned_left = True
         seen = False
         while not seen:
@@ -177,7 +180,7 @@ class CozmoMachine(StateMachine):
     def on_enter_hunting_right(self):
         print("hunting right")
         self.robot.display_oled_face_image(self.faces[3], duration_ms=5000)
-        self.robot.drive_wheels(10, -10)
+        self.robot.drive_wheel_motors(10, -10)
         self.turned_left = False
         seen = False
         while not seen:
@@ -193,19 +196,40 @@ class CozmoMachine(StateMachine):
         self.start_chase_r()
 
     def on_enter_chasing(self):
+        self.robot.stop_all_motors()
         print("Chasing!!")
         self.robot.display_oled_face_image(self.faces[1], duration_ms=5000)
-        seen = False
-        while not seen or True:
-            time.sleep(.05)
+        seen = True
+        while seen:
+            seen = False
+            time.sleep(.2)
             objs = self.robot.world.visible_objects
             try:
                 for obj in objs:
                     if obj.object_type == CustomObjectTypes.CustomType00:
                         seen = True
+                        box_rel_pose = transform(self.robot.pose, obj.pose)
+                        rel_angle = np.arctan(box_rel_pose[1] / box_rel_pose[0])
+                        # rel_angle positive -> turn left -> more speed to right wheel. & vice versa
+                        # print(rel_angle)
+                        if rel_angle < 0:
+                            self.turned_left = False
+                            #print("TURNED RIGHT THIS TIME!")
+                            #self.robot.drive_wheels(20, 20 + np.abs(rel_angle) * 6, None, None, 2)
+                            self.robot.drive_wheels(20 + (30*np.abs(rel_angle)), 20, None, None, 1.5)
+                            self.robot.stop_all_motors()
+                        else:
+                            self.turned_left = True
+                            #print("TURNED LEFT THIS TIME!")
+                            self.robot.drive_wheels(20, 20 + (30*np.abs(rel_angle)), None, None, 1.5)
+                            self.robot.stop_all_motors()
             except:
                 print("Shouldn't get here often, likely lost track of an object while looping over objs")
         print("leaving chasing")
+        if self.turned_left:
+            self.lose_l()
+        else:
+            self.lose_r()
     #def on_enter_waiting(self):
         #print("waiting!")
         #self.robot.say_text("Waiting!").wait_for_completed()
@@ -236,4 +260,5 @@ def run(robot: cozmo.robot.Robot):
                                               31, 31, True)
     machine = CozmoMachine(robot)
 
-cozmo.run_program(run, use_3d_viewer=True, use_viewer = True, force_viewer_on_top = True)
+#cozmo.run_program(run, use_3d_viewer=True, use_viewer = True, force_viewer_on_top = True)
+cozmo.run_program(run, use_3d_viewer=False, use_viewer = False, force_viewer_on_top = True)
