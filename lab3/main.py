@@ -124,13 +124,13 @@ class CozmoMachine(StateMachine):
         self.robot.display_oled_face_image(self.faces[0], duration_ms=500).wait_for_completed()
         print("Approaching...")
         time.sleep(1)
+        self.robot.drive_wheels(10, 10)
         seen = True
         close = False
         while seen and not close:
             time.sleep(.1)
-            self.robot.drive_wheels(10, 11, None, None, 3)
             #print("stopping!")
-            self.robot.stop_all_motors()
+            # self.robot.stop_all_motors()
             # self.robot.world.
             objs = self.robot.world.visible_objects
             seen = False
@@ -196,7 +196,7 @@ class CozmoMachine(StateMachine):
         self.start_chase_r()
 
     def on_enter_chasing(self):
-        self.robot.stop_all_motors()
+        # self.robot.stop_all_motors()
         print("Chasing!!")
         self.robot.display_oled_face_image(self.faces[1], duration_ms=5000)
         seen = True
@@ -216,13 +216,13 @@ class CozmoMachine(StateMachine):
                             self.turned_left = False
                             #print("TURNED RIGHT THIS TIME!")
                             #self.robot.drive_wheels(20, 20 + np.abs(rel_angle) * 6, None, None, 2)
-                            self.robot.drive_wheels(20 + (30*np.abs(rel_angle)), 20, None, None, 1.5)
-                            self.robot.stop_all_motors()
+                            self.robot.drive_wheels(20 + (30*np.abs(rel_angle)), 20)
+                            # self.robot.stop_all_motors()
                         else:
                             self.turned_left = True
                             #print("TURNED LEFT THIS TIME!")
-                            self.robot.drive_wheels(20, 20 + (30*np.abs(rel_angle)), None, None, 1.5)
-                            self.robot.stop_all_motors()
+                            self.robot.drive_wheels(20, 20 + (30*np.abs(rel_angle)))
+                            # self.robot.stop_all_motors()
             except:
                 print("Shouldn't get here often, likely lost track of an object while looping over objs")
         print("leaving chasing")
@@ -253,11 +253,11 @@ def run(robot: cozmo.robot.Robot):
     circle_cube = robot.world.define_custom_cube(CustomObjectTypes.CustomType00,
                                               CustomObjectMarkers.Circles2,
                                               44,
-                                              31, 31, True)
+                                              31, 31, False)
     diamond_cube = robot.world.define_custom_cube(CustomObjectTypes.CustomType01,
                                               CustomObjectMarkers.Diamonds2,
                                               44,
-                                              31, 31, True)
+                                              31, 31, False)
     machine = CozmoMachine(robot)
 
 #cozmo.run_program(run, use_3d_viewer=True, use_viewer = True, force_viewer_on_top = True)
