@@ -212,7 +212,10 @@ class CozmoMachine(StateMachine):
                         rel_angle = np.arctan(box_rel_pose[1] / box_rel_pose[0])
                         # rel_angle positive -> turn left -> more speed to right wheel. & vice versa
                         # print(rel_angle)
-                        if rel_angle < 0:
+                        dist = np.sqrt(box_rel_pose[0] ** 2 + box_rel_pose[1] ** 2)
+                        if dist <= 125:
+                            self.robot.stop_all_motors()
+                        elif rel_angle < 0:
                             self.turned_left = False
                             #print("TURNED RIGHT THIS TIME!")
                             #self.robot.drive_wheels(20, 20 + np.abs(rel_angle) * 6, None, None, 2)
