@@ -8,6 +8,7 @@ from utils import *
 from cozmo.util import degrees
 from cozmo.objects import CustomObject, CustomObjectMarkers, CustomObjectTypes
 import asyncio
+import copy
 
 MAX_NODES = 20000
 START_OFFSET = [50, 35]
@@ -120,14 +121,45 @@ def dist_from_node(robot, node):
     return np.sqrt(((pos.x - node[0]) ** 2) + ((pos.y - node[1]) ** 2))
 
 def search_for_goal(robot):
-    while True:
+    while not cubes[1]:
+        check_for_cubes(robot)
+        if not cubes[1]:
+            robot.turn_in_place(radians(np.pi/8)).wait_for_completed()
+            sleep(.5)
+
+def check_for_cubes(robot):
+        # Current obstacle adding code BAD, doens't care about rotation, location ends up way off in sim
+        # "working prototype"
         objs = robot.world.visible_objects
+        obstacle_size = 100
         for obj in objs:
-            if obj.object_id == 1:
-                cmap.add_goal(Node([obj.pose.position.x, obj.pose.position.y]))
-                return
-        robot.turn_in_place(radians(np.pi/8)).wait_for_completed()
-    
+            print(obj)
+            if obj.object_id == 0 and cubes[0] == False:
+                p = obj.pose.position
+                print(p)
+                cmap.add_obstacle([
+                    Node([p.x+obstacle_size/2, p.y+obstacle_size/2]),
+                    Node([p.x+obstacle_size/2, p.y-obstacle_size/2]),
+                    Node([p.x-obstacle_size/2, p.y-obstacle_size/2]),
+                    Node([p.x-obstacle_size/2, p.y+obstacle_size/2]),
+                ])
+                cubes[0] = True
+            elif obj.object_id == 1 and cubes[1] == False:
+                p = obj.pose.position
+                print(p)
+                cmap.add_goal(Node([p.x, p.y]))
+                cubes[1] = True
+            elif obj.object_id == 3 and cubes[2] == False:
+                p = obj.pose.position
+                print(p)
+                cmap.add_obstacle([
+                    Node([p.x+obstacle_size, p.y+obstacle_size]),
+                    Node([p.x+obstacle_size, p.y]),
+                    Node([p.x,               p.y]),
+                    Node([p.x,               p.y+obstacle_size])
+                ])
+                obstacle = Node([obj.pose.position.x, obj.pose.position.y])
+                cubes[2] = True
 def go_to_node(robot, node):
     node_ = [node[0], node[1]] # ensuring the node is actually a list for transform()
     node_rel_pose = transform(robot.pose, node_)
@@ -157,28 +189,43 @@ def extract_winning_path(map):
         parent = parent.parent
     return path
 
+def different(old, new):
+    return (old[0] != new[0]) or (old[1] != new[1]) or (old[2] != new[2])
+
 def CozmoPlanning(robot: cozmo.robot.Robot):
-    global cmap, stopevent
+    global cmap, stopevent, cubes
+    cubes = [False, False, False]
 
-    node_rel_pose = transform(robot.pose, [cmap.width/2, cmap.height/2])
-    rel_angle = np.arctan2(node_rel_pose[1], node_rel_pose[0])
-    robot.turn_in_place(radians(rel_angle)).wait_for_completed()
-    see_goal = False
-    objs = robot.world.visible_objects
-    for obj in objs:
-        if obj.object_id == 1:
-            # print(obj.pose)            
-            see_goal = True
-            cmap.add_goal(Node([obj.pose.position.x, obj.pose.position.y]))
-    if not see_goal:
-        go_to_node(robot, Node([cmap.width/2, cmap.height/2]))
+    check_for_cubes(robot)
+    if not cubes[1]:
+        turn_to_node(robot, [cmap.width/2, cmap.height/2])
+        sleep(.5)
+    check_for_cubes(robot)
+    if not cubes[1]:
+        go_to_node(robot, [cmap.width/2, cmap.height/2])
+        sleep(.5)
         search_for_goal(robot)
-    cmap.set_start(Node([robot.pose.position.x, robot.pose.position.y]))
-    RRT(cmap, cmap.get_start())
-    path = extract_winning_path(cmap)
-    for current in path:
-        go_to_node(robot, current)
-
+    done = False
+    while not done:
+        cmap.reset()
+        cmap.set_start(Node([robot.pose.position.x + 50, robot.pose.position.y + 25]))
+        RRT(cmap, cmap.get_start())
+        path = extract_winning_path(cmap)
+        for current in path:
+            print("driving to:", current[0], current[1])
+            if current == path[len(path) - 1]:
+                return
+            prev = copy.deepcopy(cubes)
+            sleep(.1)
+            check_for_cubes(robot)
+            if different(prev, cubes):
+                break
+            turn_to_node(robot, current)
+            sleep(.1)
+            check_for_cubes(robot)
+            if different(prev, cubes):
+                break
+            drive_at_node(robot, current)
 
 ################################################################################
 #                     DO NOT MODIFY CODE BELOW                                 #
