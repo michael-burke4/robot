@@ -119,16 +119,31 @@ def dist_from_node(robot, node):
     pos = robot.pose.position
     return np.sqrt(((pos.x - node[0]) ** 2) + ((pos.y - node[1]) ** 2))
 
-def search_for_goal():
-    print("GOTTA SEARCH!")
-    pass
+def search_for_goal(robot):
+    while True:
+        objs = robot.world.visible_objects
+        for obj in objs:
+            if obj.object_id == 1:
+                cmap.add_goal(Node([obj.pose.position.x, obj.pose.position.y]))
+                return
+        robot.turn_in_place(radians(np.pi/8)).wait_for_completed()
     
 def go_to_node(robot, node):
-    node_rel_pose = transform(robot.pose, node)
+    node_ = [node[0], node[1]] # ensuring the node is actually a list for transform()
+    node_rel_pose = transform(robot.pose, node_)
     rel_angle = np.arctan2(node_rel_pose[1], node_rel_pose[0])
     robot.turn_in_place(radians(rel_angle)).wait_for_completed()
-    robot.drive_straight(distance_mm(dist_from_node(robot, node)), speed_mmps(30), should_play_anim=False).wait_for_completed()
+    robot.drive_straight(distance_mm(dist_from_node(robot, node_)), speed_mmps(30), should_play_anim=False).wait_for_completed()
 
+def turn_to_node(robot, node):
+    node_ = [node[0], node[1]] # ensuring the node is actually a list for transform()
+    node_rel_pose = transform(robot.pose, node_)
+    rel_angle = np.arctan2(node_rel_pose[1], node_rel_pose[0])
+    robot.turn_in_place(radians(rel_angle)).wait_for_completed()
+
+def drive_at_node(robot, node):
+    robot.drive_straight(distance_mm(dist_from_node(robot, node)), speed_mmps(30), should_play_anim=False).wait_for_completed()
+    
 # ASSUMES THERE IS ONLY ONE GOAL!
 def extract_winning_path(map):
     if not map.is_solved():
@@ -143,14 +158,8 @@ def extract_winning_path(map):
     return path
 
 def CozmoPlanning(robot: cozmo.robot.Robot):
-    # Allows access to map and stopevent, which can be used to see if the GUI
-    # has been closed by checking stopevent.is_set()
     global cmap, stopevent
 
-    ########################################################################
-    # TODO: please enter your code below.
-    # Description of function provided in instructions
-    # print(cmap.get_start())
     node_rel_pose = transform(robot.pose, [cmap.width/2, cmap.height/2])
     rel_angle = np.arctan2(node_rel_pose[1], node_rel_pose[0])
     robot.turn_in_place(radians(rel_angle)).wait_for_completed()
@@ -162,14 +171,13 @@ def CozmoPlanning(robot: cozmo.robot.Robot):
             see_goal = True
             cmap.add_goal(Node([obj.pose.position.x, obj.pose.position.y]))
     if not see_goal:
-        # TODO: this whole part. Right now just go to center if cube not immediately seen.
-        go_to_node(robot, [cmap.width/2, cmap.height/2])
-        search_for_goal()
+        go_to_node(robot, Node([cmap.width/2, cmap.height/2]))
+        search_for_goal(robot)
+    cmap.set_start(Node([robot.pose.position.x, robot.pose.position.y]))
     RRT(cmap, cmap.get_start())
     path = extract_winning_path(cmap)
     for current in path:
         go_to_node(robot, current)
-    print(path)
 
 
 ################################################################################
