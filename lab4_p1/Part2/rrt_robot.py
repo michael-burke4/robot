@@ -106,6 +106,8 @@ def transform(rob_glob_pose, node):
     rob_global_angle = rob_glob_pose.rotation.angle_z.radians
     cos_t = np.cos(rob_global_angle)
     sin_t = np.sin(rob_global_angle)
+    #x = rob_glob_pose.position.x + START_OFFSET[0]
+    #y = rob_glob_pose.position.y + START_OFFSET[1]
     x = rob_glob_pose.position.x
     y = rob_glob_pose.position.y
     T_world_to_robot = np.matrix( [[cos_t,  sin_t, -(cos_t * x + sin_t * y)],
@@ -118,6 +120,7 @@ def transform(rob_glob_pose, node):
 
 def dist_from_node(robot, node):
     pos = robot.pose.position
+    #return np.sqrt(((pos.x + START_OFFSET[0] - node[0]) ** 2) + ((pos.y + START_OFFSET[1] - node[1]) ** 2))
     return np.sqrt(((pos.x - node[0]) ** 2) + ((pos.y - node[1]) ** 2))
 
 def search_for_goal(robot):
@@ -143,35 +146,27 @@ def check_for_cubes(robot):
         objs = robot.world.visible_objects
         obstacle_size = 100
         for obj in objs:
+            px = obj.pose.position.x
+            py = obj.pose.position.y
             if obj.object_id == 0 and cubes[0] == False:
-                p = obj.pose.position
-                center_x = obj.pose.position.x
-                center_y = obj.pose.position.y
                 angle = obj.pose.rotation.angle_z.radians
-                print(center_x, center_y)
                 cmap.add_obstacle([
-                    rotate_about_center(Node([center_x, center_y]), Node([p.x+obstacle_size/2, p.y+obstacle_size/2]), angle),
-                    rotate_about_center(Node([center_x, center_y]), Node([p.x+obstacle_size/2, p.y-obstacle_size/2]), angle),
-                    rotate_about_center(Node([center_x, center_y]), Node([p.x-obstacle_size/2, p.y-obstacle_size/2]), angle),
-                    rotate_about_center(Node([center_x, center_y]), Node([p.x-obstacle_size/2, p.y+obstacle_size/2]), angle),
+                    rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py+obstacle_size/2]), angle),
+                    rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py-obstacle_size/2]), angle),
+                    rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py-obstacle_size/2]), angle),
+                    rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py+obstacle_size/2]), angle),
                 ])
                 cubes[0] = True
             elif obj.object_id == 1 and cubes[1] == False:
-                p = obj.pose.position
-                print(p)
-                cmap.add_goal(Node([p.x, p.y]))
+                cmap.add_goal(Node([px, py]))
                 cubes[1] = True
             elif obj.object_id == 2 and cubes[2] == False:
-                p = obj.pose.position
-                center_x = obj.pose.position.x
-                center_y = obj.pose.position.y
                 angle = obj.pose.rotation.angle_z.radians
-                print(center_x, center_y)
                 cmap.add_obstacle([
-                    rotate_about_center(Node([center_x, center_y]), Node([p.x+obstacle_size/2, p.y+obstacle_size/2]), angle),
-                    rotate_about_center(Node([center_x, center_y]), Node([p.x+obstacle_size/2, p.y-obstacle_size/2]), angle),
-                    rotate_about_center(Node([center_x, center_y]), Node([p.x-obstacle_size/2, p.y-obstacle_size/2]), angle),
-                    rotate_about_center(Node([center_x, center_y]), Node([p.x-obstacle_size/2, p.y+obstacle_size/2]), angle),
+                    rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py+obstacle_size/2]), angle),
+                    rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py-obstacle_size/2]), angle),
+                    rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py-obstacle_size/2]), angle),
+                    rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py+obstacle_size/2]), angle),
                 ])
                 cubes[2] = True
 def go_to_node(robot, node):
@@ -188,7 +183,8 @@ def turn_to_node(robot, node):
     robot.turn_in_place(radians(rel_angle)).wait_for_completed()
 
 def drive_at_node(robot, node):
-    robot.drive_straight(distance_mm(dist_from_node(robot, node)), speed_mmps(30), should_play_anim=False).wait_for_completed()
+    node_ = Node([node[0], node[1]])
+    robot.drive_straight(distance_mm(dist_from_node(robot, node_)), speed_mmps(30), should_play_anim=False).wait_for_completed()
     
 # ASSUMES THERE IS ONLY ONE GOAL!
 def extract_winning_path(map):
@@ -209,7 +205,7 @@ def different(old, new):
 def CozmoPlanning(robot: cozmo.robot.Robot):
     global cmap, stopevent, cubes
     cubes = [False, False, False]
-
+    sleep(.5)
     check_for_cubes(robot)
     if not cubes[1]:
         turn_to_node(robot, [cmap.width/2, cmap.height/2])
@@ -222,7 +218,7 @@ def CozmoPlanning(robot: cozmo.robot.Robot):
     done = False
     while not done:
         cmap.reset()
-        cmap.set_start(Node([robot.pose.position.x + 50, robot.pose.position.y + 25]))
+        cmap.set_start(Node([robot.pose.position.x, robot.pose.position.y]))
         RRT(cmap, cmap.get_start())
         path = extract_winning_path(cmap)
         for current in path:
