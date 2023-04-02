@@ -127,21 +127,33 @@ def search_for_goal(robot):
             robot.turn_in_place(radians(np.pi/8)).wait_for_completed()
             sleep(.5)
 
+# implementation details provided by this stackexchange post
+# https://gamedev.stackexchange.com/questions/86755/how-to-calculate-corner-positions-marks-of-a-rotated-tilted-rectangle
+def rotate_about_center(center, point, angle):
+    tempx = point.x - center.x
+    tempy = point.y - center.y
+    rx = tempx * np.cos(angle) - tempy * np.sin(angle)
+    ry = tempx * np.sin(angle) + tempy * np.cos(angle)
+    return Node([rx + center.x, ry + center.y])
+
+
 def check_for_cubes(robot):
         # Current obstacle adding code BAD, doens't care about rotation, location ends up way off in sim
         # "working prototype"
         objs = robot.world.visible_objects
         obstacle_size = 100
         for obj in objs:
-            print(obj)
             if obj.object_id == 0 and cubes[0] == False:
                 p = obj.pose.position
-                print(p)
+                center_x = obj.pose.position.x
+                center_y = obj.pose.position.y
+                angle = obj.pose.rotation.angle_z.radians
+                print(center_x, center_y)
                 cmap.add_obstacle([
-                    Node([p.x+obstacle_size/2, p.y+obstacle_size/2]),
-                    Node([p.x+obstacle_size/2, p.y-obstacle_size/2]),
-                    Node([p.x-obstacle_size/2, p.y-obstacle_size/2]),
-                    Node([p.x-obstacle_size/2, p.y+obstacle_size/2]),
+                    rotate_about_center(Node([center_x, center_y]), Node([p.x+obstacle_size/2, p.y+obstacle_size/2]), angle),
+                    rotate_about_center(Node([center_x, center_y]), Node([p.x+obstacle_size/2, p.y-obstacle_size/2]), angle),
+                    rotate_about_center(Node([center_x, center_y]), Node([p.x-obstacle_size/2, p.y-obstacle_size/2]), angle),
+                    rotate_about_center(Node([center_x, center_y]), Node([p.x-obstacle_size/2, p.y+obstacle_size/2]), angle),
                 ])
                 cubes[0] = True
             elif obj.object_id == 1 and cubes[1] == False:
@@ -149,16 +161,18 @@ def check_for_cubes(robot):
                 print(p)
                 cmap.add_goal(Node([p.x, p.y]))
                 cubes[1] = True
-            elif obj.object_id == 3 and cubes[2] == False:
+            elif obj.object_id == 2 and cubes[2] == False:
                 p = obj.pose.position
-                print(p)
+                center_x = obj.pose.position.x
+                center_y = obj.pose.position.y
+                angle = obj.pose.rotation.angle_z.radians
+                print(center_x, center_y)
                 cmap.add_obstacle([
-                    Node([p.x+obstacle_size, p.y+obstacle_size]),
-                    Node([p.x+obstacle_size, p.y]),
-                    Node([p.x,               p.y]),
-                    Node([p.x,               p.y+obstacle_size])
+                    rotate_about_center(Node([center_x, center_y]), Node([p.x+obstacle_size/2, p.y+obstacle_size/2]), angle),
+                    rotate_about_center(Node([center_x, center_y]), Node([p.x+obstacle_size/2, p.y-obstacle_size/2]), angle),
+                    rotate_about_center(Node([center_x, center_y]), Node([p.x-obstacle_size/2, p.y-obstacle_size/2]), angle),
+                    rotate_about_center(Node([center_x, center_y]), Node([p.x-obstacle_size/2, p.y+obstacle_size/2]), angle),
                 ])
-                obstacle = Node([obj.pose.position.x, obj.pose.position.y])
                 cubes[2] = True
 def go_to_node(robot, node):
     node_ = [node[0], node[1]] # ensuring the node is actually a list for transform()
@@ -212,16 +226,15 @@ def CozmoPlanning(robot: cozmo.robot.Robot):
         RRT(cmap, cmap.get_start())
         path = extract_winning_path(cmap)
         for current in path:
-            print("driving to:", current[0], current[1])
             if current == path[len(path) - 1]:
                 return
             prev = copy.deepcopy(cubes)
-            sleep(.1)
+            sleep(.5)
             check_for_cubes(robot)
             if different(prev, cubes):
                 break
             turn_to_node(robot, current)
-            sleep(.1)
+            sleep(.5)
             check_for_cubes(robot)
             if different(prev, cubes):
                 break
