@@ -144,31 +144,39 @@ def check_for_cubes(robot):
         # Current obstacle adding code BAD, doens't care about rotation, location ends up way off in sim
         # "working prototype"
         objs = robot.world.visible_objects
+        sleep(.2)
+        objs = robot.world.visible_objects
         obstacle_size = 100
         for obj in objs:
-            px = obj.pose.position.x
-            py = obj.pose.position.y
+            print("OBJECT ID:", obj.object_id)
+            px = obj.pose.position.x + START_OFFSET[0]
+            py = obj.pose.position.y + START_OFFSET[1]
             if obj.object_id == 0 and cubes[0] == False:
+                tmp = cubes[0]  # dumb ordering for manipulating this tmp variable and cubes[0] to avoid adding duplicate obstacles
+                cubes[0] = True # have to set cubes[0] true before adding obstacle.
                 angle = obj.pose.rotation.angle_z.radians
-                cmap.add_obstacle([
-                    rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py+obstacle_size/2]), angle),
-                    rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py-obstacle_size/2]), angle),
-                    rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py-obstacle_size/2]), angle),
-                    rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py+obstacle_size/2]), angle),
-                ])
-                cubes[0] = True
+                if not tmp:
+                    cmap.add_obstacle([
+                        rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py+obstacle_size/2]), angle),
+                        rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py-obstacle_size/2]), angle),
+                        rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py-obstacle_size/2]), angle),
+                        rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py+obstacle_size/2]), angle),
+                    ])
             elif obj.object_id == 1 and cubes[1] == False:
+                cmap.clear_goals()
                 cmap.add_goal(Node([px, py]))
                 cubes[1] = True
-            elif obj.object_id == 2 and cubes[2] == False:
-                angle = obj.pose.rotation.angle_z.radians
-                cmap.add_obstacle([
-                    rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py+obstacle_size/2]), angle),
-                    rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py-obstacle_size/2]), angle),
-                    rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py-obstacle_size/2]), angle),
-                    rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py+obstacle_size/2]), angle),
-                ])
+            elif obj.object_id == 2 or obj.object_id == 3 and cubes[2] == False:
+                tmp = cubes[2]
                 cubes[2] = True
+                angle = obj.pose.rotation.angle_z.radians
+                if not tmp:
+                    cmap.add_obstacle([
+                        rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py+obstacle_size/2]), angle),
+                        rotate_about_center(Node([px, py]), Node([px+obstacle_size/2, py-obstacle_size/2]), angle),
+                        rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py-obstacle_size/2]), angle),
+                        rotate_about_center(Node([px, py]), Node([px-obstacle_size/2, py+obstacle_size/2]), angle),
+                    ])
 def go_to_node(robot, node):
     node_ = [node[0], node[1]] # ensuring the node is actually a list for transform()
     node_rel_pose = transform(robot.pose, node_)
@@ -202,39 +210,54 @@ def extract_winning_path(map):
 def different(old, new):
     return (old[0] != new[0]) or (old[1] != new[1]) or (old[2] != new[2])
 
+def follow_trail(robot, cmap):
+    path = extract_winning_path(cmap)
+    for current in path:
+        if current == path[len(path)-1]:
+            return True
+        prev = copy.deepcopy(cubes)
+        sleep(.5)
+        check_for_cubes(robot)
+        if different(prev, cubes):
+            return False
+        turn_to_node(robot, Node([current[0] - START_OFFSET[0], current[1] - START_OFFSET[1]]))
+        sleep(.5)
+        check_for_cubes(robot)
+        if different(prev, cubes):
+            return False
+        drive_at_node(robot, Node([current[0] - START_OFFSET[0], current[1] - START_OFFSET[1]]))
+
 def CozmoPlanning(robot: cozmo.robot.Robot):
     global cmap, stopevent, cubes
     cubes = [False, False, False]
-    sleep(.5)
-    check_for_cubes(robot)
-    if not cubes[1]:
-        turn_to_node(robot, [cmap.width/2, cmap.height/2])
+
+    # whole section is for finding the goal cube
+    found_goal = False
+    while not found_goal:
         sleep(.5)
-    check_for_cubes(robot)
-    if not cubes[1]:
-        go_to_node(robot, [cmap.width/2, cmap.height/2])
-        sleep(.5)
-        search_for_goal(robot)
-    done = False
-    while not done:
+        check_for_cubes(robot)
+        if cubes[1]:
+            found_goal = True
+            break
+        cmap.clear_goals() 
+        cmap.clear_node_paths()
         cmap.reset()
-        cmap.set_start(Node([robot.pose.position.x, robot.pose.position.y]))
+        cmap.set_start(Node([robot.pose.position.x + START_OFFSET[0], robot.pose.position.y + START_OFFSET[1]])) # have to offset or else the cmap gets angry at start
+        rand_goal = cmap.get_random_valid_node()
+        cmap.add_goal(rand_goal) # search by adding a new random goal
         RRT(cmap, cmap.get_start())
-        path = extract_winning_path(cmap)
-        for current in path:
-            if current == path[len(path) - 1]:
-                return
-            prev = copy.deepcopy(cubes)
-            sleep(.5)
-            check_for_cubes(robot)
-            if different(prev, cubes):
-                break
-            turn_to_node(robot, current)
-            sleep(.5)
-            check_for_cubes(robot)
-            if different(prev, cubes):
-                break
-            drive_at_node(robot, current)
+        follow_trail(robot, cmap) # follow the path until (1) goal is seen, (2) new obstacle is seen, or (3) current path completes
+        if cubes[1]: # if we found the goal cube
+            found_goal = True
+            break             # then we go on to the next phase
+
+    done = False
+    while not done: # should be here when the goal cube has been found, now we just have to get there.
+        cmap.reset()
+        cmap.set_start(Node([robot.pose.position.x + START_OFFSET[0], robot.pose.position.y + START_OFFSET[1]])) # have to offset or else the cmap gets angry at start
+        RRT(cmap, cmap.get_start())
+        if follow_trail(robot, cmap): # terminates program execution upon reaching the goal.
+            return
 
 ################################################################################
 #                     DO NOT MODIFY CODE BELOW                                 #
