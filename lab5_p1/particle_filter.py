@@ -5,27 +5,26 @@ from setting import *
 import numpy as np
 import time
 
+def sample(x):
+    return random.gauss(0.0, x)
 # ------------------------------------------------------------------------
 def sample_motion(particle, odom, a1, a2, a3, a4):
-    prev = odom[0]
-    curr = odom[1]
+    (xbar, ybar, tbar) = odom[0]
+    (xbarprime, ybarprime, tbarprime) = odom[1]
 
-    drot1 = np.arctan2(curr[1] - prev[1], curr[0] - prev[0]) - prev[2]# 1
-    dtrans = np.sqrt(((prev[0] - curr[0]) ** 2) + ((prev[1] - curr[1]) ** 2)) #2
-    drot2 = curr[2] - prev[1] - drot1 #3
-
-    #hdrot1 = drot1 - np.random.normal(loc=0, scale=ODOM_HEAD_SIGMA, size=1)
-    #hdtrans = dtrans - np.random.normal(loc=0, scale=ODOM_TRANS_SIGMA, size=1)
-    #hdrot2 = drot2 - np.random.normal(loc=0, scale=ODOM_HEAD_SIGMA, size=1)
+    drot1 = np.arctan2(ybarprime - ybar, xbarprime - xbar) - tbar
+    dtrans = np.sqrt((xbar - xbarprime) ** 2 + (ybar - ybarprime) ** 2)
+    drot2 = tbarprime - tbar - drot1
     
-    #xprime = particle.x + hdtrans * np.cos(particle.h + hdrot1)
-    #yprime = particle.y + hdtrans * np.sin(particle.h + hdrot1)
-    #tprime = particle.h + hdrot1 + hdrot2
+    hdrot1 = drot1 - sample(a1*drot1 + a2*dtrans)
+    hdtrans = dtrans - sample(a3 * dtrans + (a4 * (drot1 + drot2)))
+    hdrot2 = drot1 - sample(a1*drot1 + a2*dtrans)
 
-    return Particle(particle.x+(dtrans*np.cos(particle.h+drot1)),
-                    particle.y+(dtrans*np.sin(particle.h+drot1)),
-                    particle.h+drot1+drot2)
-    #return Particle(xprime, yprime, tprime)
+    xprime = particle.x + hdtrans * np.cos(particle.h + hdrot1)
+    yprime = particle.y + hdtrans * np.sin(particle.h + hdrot1)
+    tprime = particle.h + hdrot1 + hdrot2
+
+    return Particle(xprime, yprime, tprime)
 
 def motion_update(particles, odom):
     """ Particle filter motion update
