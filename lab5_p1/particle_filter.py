@@ -12,16 +12,16 @@ def sample_motion(particle, odom, a1, a2, a3, a4):
     (xbar, ybar, tbar) = odom[0]
     (xbarprime, ybarprime, tbarprime) = odom[1]
 
-    drot1 = np.arctan2(ybarprime - ybar, xbarprime - xbar) - tbar
+    drot1 = np.degrees(np.arctan2(ybarprime - ybar, xbarprime - xbar)) - tbar
     dtrans = np.sqrt((xbar - xbarprime) ** 2 + (ybar - ybarprime) ** 2)
     drot2 = tbarprime - tbar - drot1
     
     hdrot1 = drot1 - sample(a1*drot1 + a2*dtrans)
     hdtrans = dtrans - sample(a3 * dtrans + (a4 * (drot1 + drot2)))
-    hdrot2 = drot1 - sample(a1*drot1 + a2*dtrans)
+    hdrot2 = drot2 - sample(a1*drot1 + a2*dtrans)
 
-    xprime = particle.x + hdtrans * np.cos(particle.h + hdrot1)
-    yprime = particle.y + hdtrans * np.sin(particle.h + hdrot1)
+    xprime = particle.x + hdtrans * np.cos(np.radians(particle.h + hdrot1))
+    yprime = particle.y + hdtrans * np.sin(np.radians(particle.h + hdrot1))
     tprime = particle.h + hdrot1 + hdrot2
 
     return Particle(xprime, yprime, tprime)
@@ -42,11 +42,9 @@ def motion_update(particles, odom):
     alpha2 = 0.001
     alpha3 = 0.005
     alpha4 = 0.005
-    #print("particles:", particles)
     for i in range(len(particles)):
         particles[i] = sample_motion(particles[i], odom, alpha1, alpha2, alpha3, alpha4)
 
-    
     return particles
 
 # ------------------------------------------------------------------------
@@ -67,6 +65,15 @@ def measurement_update(particles, measured_marker_list, grid):
         Returns: the list of particle representing belief p(x_{t} | u_{t})
                 after measurement update
     """
+    print("measured markers:", measured_marker_list)
+    print("grid:", grid)
+    for particle in particles:
+        #particle_markers = particle.read_markers(grid)
+        # print("PARTICLE MARKERS:", particle_markers)
+        #for marker in measured_marker_list:
+            #if marker in particle_markers:
+                #print("THERE WAS OVERLAP!")
+        pass
     measured_particles = []
     #return measured_particles
     return particles
