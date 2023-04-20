@@ -1,3 +1,5 @@
+# Michael Burke and Griffin Bjerke
+
 from grid import *
 from particle import Particle
 from utils import *
@@ -76,7 +78,7 @@ def measurement_update(particles, measured_marker_list, grid):
             probabilities.append(0)
         else:
             compound_prob = 1
-            for simulated in particle_simulated_seen:
+            for simulated in particle_simulated_seen: # currently doing nothing to match up "best fit" pairs of markers between particle and agent. Code could improve with this.
                     rhat = np.sqrt((simulated[0] ** 2) + (simulated[1] ** 2))
                     phihat = np.arctan2(simulated[0], simulated[1])
                     for marker in measured_marker_list:
@@ -85,7 +87,7 @@ def measurement_update(particles, measured_marker_list, grid):
                         compound_prob *= gaussian_prob(0, MARKER_TRANS_SIGMA, r - rhat) * gaussian_prob(0, MARKER_ROT_SIGMA, phi - phihat)
             probabilities.append(compound_prob)
     s = sum(probabilities)
-    if s == 0:
-        return particles
+    if s == 0: # if sum of probabilities is zero, none of the particles saw the correct # of markers.
+        return particles # Move them blindly onward in hopes measurements get better soon.
     probabilities[:] = [x / s for x in probabilities]
     return np.random.choice(particles, 5000, p=probabilities)
