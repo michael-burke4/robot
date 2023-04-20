@@ -16,9 +16,9 @@ def sample_motion(particle, odom, a1, a2, a3, a4):
     dtrans = np.sqrt((xbar - xbarprime) ** 2 + (ybar - ybarprime) ** 2)
     drot2 = tbarprime - tbar - drot1
     
-    hdrot1 = drot1 - sample(a1*drot1 + a2*dtrans)
-    hdtrans = dtrans - sample(a3 * dtrans + (a4 * (drot1 + drot2)))
-    hdrot2 = drot2 - sample(a1*drot1 + a2*dtrans)
+    hdrot1 = drot1 - sample(ODOM_HEAD_SIGMA)
+    hdtrans = dtrans - sample(ODOM_TRANS_SIGMA)
+    hdrot2 = drot2 - sample(ODOM_HEAD_SIGMA)
 
     xprime = particle.x + hdtrans * np.cos(np.radians(particle.h + hdrot1))
     yprime = particle.y + hdtrans * np.sin(np.radians(particle.h + hdrot1))
@@ -48,6 +48,10 @@ def motion_update(particles, odom):
     return particles
 
 # ------------------------------------------------------------------------
+def gaussian_prob(mu, sigma, x):
+    return (1/(sigma * np.sqrt(2*np.pi))) * (np.e ** ((-1/2) * (((x - mu)/sigma) ** 2)))
+
+        
 def measurement_update(particles, measured_marker_list, grid):
     """ Particle filter measurement update
 
@@ -65,15 +69,23 @@ def measurement_update(particles, measured_marker_list, grid):
         Returns: the list of particle representing belief p(x_{t} | u_{t})
                 after measurement update
     """
-    print("measured markers:", measured_marker_list)
-    print("grid:", grid)
+    probabilities = []
     for particle in particles:
-        #particle_markers = particle.read_markers(grid)
-        # print("PARTICLE MARKERS:", particle_markers)
-        #for marker in measured_marker_list:
-            #if marker in particle_markers:
-                #print("THERE WAS OVERLAP!")
-        pass
-    measured_particles = []
-    #return measured_particles
-    return particles
+        particle_simulated_seen = particle.read_markers(grid)
+        if len(particle_simulated_seen) != len(measured_marker_list):
+            probabilities.append(0)
+        else:
+            compound_prob = 1
+            for simulated in particle_simulated_seen:
+                    rhat = np.sqrt((simulated[0] ** 2) + (simulated[1] ** 2))
+                    phihat = np.arctan2(simulated[0], simulated[1])
+                    for marker in measured_marker_list:
+                        r = np.sqrt((marker[0] ** 2) + (marker[1] ** 2))
+                        phi = np.arctan2(marker[0], marker[1])
+                        compound_prob *= gaussian_prob(0, MARKER_TRANS_SIGMA, r - rhat) * gaussian_prob(0, MARKER_ROT_SIGMA, phi - phihat)
+            probabilities.append(compound_prob)
+    s = sum(probabilities)
+    if s == 0:
+        return particles
+    probabilities[:] = [x / s for x in probabilities]
+    return np.random.choice(particles, 5000, p=probabilities)
