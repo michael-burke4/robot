@@ -17,7 +17,7 @@ from utils import *
 #obtain marker distance and orientation
 def cvt_marker_measurements(ar_markers):
 
-    marker2d_list = [];
+    marker2d_list = []
 
     for m in ar_markers:
         R_1_2, J = cv2.Rodrigues(m.rvec)
@@ -66,7 +66,7 @@ def display_opencv(robot: cozmo.robot.Robot):
 
             for marker in markers:
                 marker.highlite_marker(open_cv_image, draw_frame=True, camK=camK)
-                #print("ID =", marker.id);
+                #print("ID =", marker.id)
                 #print(marker.contours);
 
             cv2.imshow("Markers", open_cv_image)

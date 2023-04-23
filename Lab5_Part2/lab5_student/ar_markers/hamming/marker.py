@@ -71,9 +71,9 @@ class HammingMarker(object):
         # convert to img points
         img_points = cv2.projectPoints(obj_points, self.rvec, self.tvec, camK, np.array([0,0,0,0], \
             dtype='float32'))[0]
-        cv2.line(img, tuple(img_points[0][0]), tuple(img_points[1][0]), (0,0,255),thickness=linewidth)
-        cv2.line(img, tuple(img_points[0][0]), tuple(img_points[2][0]), (0,255,0),thickness=linewidth)
-        cv2.line(img, tuple(img_points[0][0]), tuple(img_points[3][0]), (255,0,0),thickness=linewidth)
+        #cv2.line(img, tuple(img_points[0][0]), tuple(img_points[1][0]), (0,0,255),thickness=linewidth)
+        #cv2.line(img, tuple(img_points[0][0]), tuple(img_points[2][0]), (0,255,0),thickness=linewidth)
+        #cv2.line(img, tuple(img_points[0][0]), tuple(img_points[3][0]), (255,0,0),thickness=linewidth)
 
 
     def highlite_marker(self, img, contour_color=(0, 255, 255), text_color=(255, 255, 0), \
