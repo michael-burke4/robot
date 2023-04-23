@@ -130,6 +130,9 @@ async def run(robot: cozmo.robot.Robot):
     ############################################################################
     ######################### YOUR CODE HERE####################################
     while True:
+        last_pose = robot.pose
+        await robot.drive_wheels(50, 15, None, None, 2)
+        #time.sleep(1)
         markers = []
         for i in range(10):
             seen = await image_processing(robot)
@@ -143,9 +146,13 @@ async def run(robot: cozmo.robot.Robot):
                             add = False
                     if add:
                         markers.append(mkr)
-        print("raw measurements:", markers)
         marker_poses = cvt_2Dmarker_measurements(markers)
-        print("translated:", marker_poses)
+        x, y, h, conf = pf.update(compute_odometry(robot.pose), marker_poses)
+        gui.show_particles(pf.particles)
+        gui.show_mean(x, y, h, conf)
+        gui.updated.set()
+        #print("can see", len(marker_poses), "markers")
+        #time.sleep(1)
     ############################################################################
 
 
