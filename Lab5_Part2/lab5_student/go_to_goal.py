@@ -49,7 +49,7 @@ async def image_processing(robot):
         marker.highlite_marker(opencv_image, draw_frame=True, camK=camK)
         #print("ID =", marker.id);
         #print(marker.contours);
-    cv2.imshow("Markers", opencv_image)
+    #cv2.imshow("Markers", opencv_image)
 
     return markers
 
@@ -129,7 +129,23 @@ async def run(robot: cozmo.robot.Robot):
 
     ############################################################################
     ######################### YOUR CODE HERE####################################
-
+    while True:
+        markers = []
+        for i in range(10):
+            seen = await image_processing(robot)
+            for mkr in seen:
+                if len(markers) == 0:
+                    markers.append(mkr)
+                else:
+                    add = True
+                    for noted in markers:
+                        if np.abs((mkr.center[0] - noted.center[0]) + (mkr.center[1] - noted.center[1])) < 5:
+                            add = False
+                    if add:
+                        markers.append(mkr)
+        print("raw measurements:", markers)
+        marker_poses = cvt_2Dmarker_measurements(markers)
+        print("translated:", marker_poses)
     ############################################################################
 
 
