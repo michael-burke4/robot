@@ -116,6 +116,30 @@ class ParticleFilter:
         m_x, m_y, m_h, m_confident = compute_mean_pose(self.particles)
         return (m_x, m_y, m_h, m_confident)
 
+async def robust_find_markers(robot):
+    markers = []
+    for i in range(10):
+        seen = await image_processing(robot)
+        for mkr in seen:
+            if len(markers) == 0:
+                markers.append(mkr)
+            else:
+                add = True
+                for noted in markers:
+                    if np.abs((mkr.center[0] - noted.center[0]) + (mkr.center[1] - noted.center[1])) < 5:
+                        add = False
+                if add:
+                    markers.append(mkr)
+    return markers
+
+def filter_update(pf, markers, robot):
+    marker_poses = cvt_2Dmarker_measurements(markers)
+    x, y, h, conf = pf.update(compute_odometry(robot.pose), marker_poses)
+    print("robot's zone:", x, y, h)
+    gui.show_particles(pf.particles)
+    gui.show_mean(x, y, h, conf)
+    gui.updated.set()
+    return (x, y, h, conf)
 
 async def run(robot: cozmo.robot.Robot):
     global last_pose
@@ -129,30 +153,24 @@ async def run(robot: cozmo.robot.Robot):
 
     ############################################################################
     ######################### YOUR CODE HERE####################################
+    state = "localizing"
+    localization_steps = 0
     while True:
-        last_pose = robot.pose
-        await robot.drive_wheels(50, 15, None, None, 2)
-        #time.sleep(1)
-        markers = []
-        for i in range(10):
-            seen = await image_processing(robot)
-            for mkr in seen:
-                if len(markers) == 0:
-                    markers.append(mkr)
-                else:
-                    add = True
-                    for noted in markers:
-                        if np.abs((mkr.center[0] - noted.center[0]) + (mkr.center[1] - noted.center[1])) < 5:
-                            add = False
-                    if add:
-                        markers.append(mkr)
-        marker_poses = cvt_2Dmarker_measurements(markers)
-        x, y, h, conf = pf.update(compute_odometry(robot.pose), marker_poses)
-        gui.show_particles(pf.particles)
-        gui.show_mean(x, y, h, conf)
-        gui.updated.set()
-        #print("can see", len(marker_poses), "markers")
-        #time.sleep(1)
+        if state == "localizing":
+            last_pose = robot.pose
+            await robot.drive_wheels(50, 15, None, None, 2)
+            markers = await robust_find_markers(robot)
+            localization_steps += 1
+            (_, _, _, conf) = filter_update(pf, markers, robot)
+            if conf:
+                state = "approaching goal"
+            if localization_steps > 13: # chose 13 because it's an unlucky number !! 😱
+                pf.particles = Particle.create_random(PARTICLE_COUNT, grid)
+                print("localization went wrong: trying again")
+
+        if state == "approaching goal":
+            print("yay!")
+            time.sleep(1)
     ############################################################################
 
 
