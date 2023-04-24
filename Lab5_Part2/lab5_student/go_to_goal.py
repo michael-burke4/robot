@@ -141,6 +141,9 @@ def filter_update(pf, markers, robot):
     gui.updated.set()
     return (x, y, h, conf)
 
+def get_rel_angle(robot_est_pose, goal_pose):
+    return np.degrees(np.arctan2(goal_pose[1] - robot_est_pose[1], goal_pose[0] - robot_est_pose[0]))
+
 async def run(robot: cozmo.robot.Robot):
     global last_pose
     global grid, gui
@@ -155,7 +158,9 @@ async def run(robot: cozmo.robot.Robot):
     ######################### YOUR CODE HERE####################################
     state = "localizing"
     localization_steps = 0
+    localized_steps = 0
     while True:
+
         if state == "localizing":
             last_pose = robot.pose
             await robot.drive_wheels(50, 15, None, None, 2)
@@ -163,14 +168,40 @@ async def run(robot: cozmo.robot.Robot):
             localization_steps += 1
             (_, _, _, conf) = filter_update(pf, markers, robot)
             if conf:
-                state = "approaching goal"
+                localization_steps = 0
+                localized_steps += 1
+                if localized_steps > 5:
+                    localized_steps = 0
+                    state = "approaching goal"
+                    last_pose = robot.pose
+            else:
+                localized_steps = 0
             if localization_steps > 13: # chose 13 because it's an unlucky number !! 😱
                 pf.particles = Particle.create_random(PARTICLE_COUNT, grid)
                 print("localization went wrong: trying again")
 
-        if state == "approaching goal":
-            print("yay!")
-            time.sleep(1)
+        elif state == "approaching goal":
+            markers = await robust_find_markers(robot)
+            (x, y, h, conf) = filter_update(pf, markers, robot)
+            if not conf:
+                localization_steps = 0
+                localized_steps = 0
+                state = "localizing"
+            else:
+                rel_ang = get_rel_angle([x,y,h], goal)
+                dist = np.sqrt(((goal[0] - x) ** 2) + ((goal[1] - y) ** 2))
+                print("DISTANCE:", dist)
+                last_pose = robot.pose
+                if dist < 2:
+                    pass
+                elif np.abs(h - rel_ang) < 20:
+                    await robot.drive_wheels(20, 20, None, None, 2)
+                else:
+                    await robot.drive_wheels(20, -20, None, None, 2)
+                #markers = await robust_find_markers(robot)
+                #(x, y, h, conf) = filter_update(pf, markers, robot)
+
+                
     ############################################################################
 
 
