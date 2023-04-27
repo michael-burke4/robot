@@ -144,6 +144,9 @@ def filter_update(pf, markers, robot):
 def get_rel_angle(robot_est_pose, goal_pose):
     return np.degrees(np.arctan2(goal_pose[1] - robot_est_pose[1], goal_pose[0] - robot_est_pose[0]))
 
+def check_kidnapped(robot):
+    return robot.pose.position.x == 0 and robot.pose.position.y == 0
+
 async def run(robot: cozmo.robot.Robot):
     global last_pose
     global grid, gui
@@ -156,52 +159,71 @@ async def run(robot: cozmo.robot.Robot):
 
     ############################################################################
     ######################### YOUR CODE HERE####################################
+    # move bot a bit at start to avoid thinking kidnapped
+    await robot.drive_wheels(20, 20, None, None, 1.5)
+    time.sleep(2)
     state = "localizing"
     localization_steps = 0
-    localized_steps = 0
     while True:
-
-        if state == "localizing":
+        if check_kidnapped(robot):
+            state = "kidnapped"
+        if state == "kidnapped":
+            print("the bot has been moved")
+            time.sleep(2)
+            await robot.drive_wheels(20, 20, None, None, 1.5)
+            time.sleep(2)
+            pf.particles = Particle.create_random(PARTICLE_COUNT, grid)
+            localization_steps = 0
+            state = "localizing"
+        elif state == "localizing":
             last_pose = robot.pose
+            if check_kidnapped(robot):
+                state = "kidnapped"
+                continue
             await robot.drive_wheels(50, 15, None, None, 2)
             markers = await robust_find_markers(robot)
             localization_steps += 1
             (_, _, _, conf) = filter_update(pf, markers, robot)
             if conf:
                 localization_steps = 0
-                localized_steps += 1
-                if localized_steps > 5:
-                    localized_steps = 0
-                    state = "approaching goal"
-                    last_pose = robot.pose
-            else:
-                localized_steps = 0
-            if localization_steps > 13: # chose 13 because it's an unlucky number !! 😱
+                state = "approaching goal"
+                last_pose = robot.pose
+            if localization_steps > 8:
                 pf.particles = Particle.create_random(PARTICLE_COUNT, grid)
+                localization_steps = 0
                 print("localization went wrong: trying again")
 
         elif state == "approaching goal":
+            if check_kidnapped(robot):
+                state = "kidnapped"
+                continue
             markers = await robust_find_markers(robot)
             (x, y, h, conf) = filter_update(pf, markers, robot)
             if not conf:
                 localization_steps = 0
-                localized_steps = 0
                 state = "localizing"
             else:
+                if check_kidnapped(robot):
+                    state = "kidnapped"
+                    continue
                 rel_ang = get_rel_angle([x,y,h], goal)
+                print("RELATIVE ANGLE:", h - rel_ang)
                 dist = np.sqrt(((goal[0] - x) ** 2) + ((goal[1] - y) ** 2))
                 print("DISTANCE:", dist)
                 last_pose = robot.pose
-                if dist < 2:
-                    pass
-                elif np.abs(h - rel_ang) < 20:
+                if dist < 1:
+                    continue
+                if np.abs(h - rel_ang) < 20 or 360 - np.abs(h - rel_ang) < 20:
                     await robot.drive_wheels(20, 20, None, None, 2)
+                    if check_kidnapped(robot):
+                        state = "kidnapped"
+                        continue
                 else:
-                    await robot.drive_wheels(20, -20, None, None, 2)
-                #markers = await robust_find_markers(robot)
-                #(x, y, h, conf) = filter_update(pf, markers, robot)
+                    await robot.drive_wheels(-15, 15, None, None, 2)
+                    if check_kidnapped(robot):
+                        state = "kidnapped"
+                        continue
 
-                
     ############################################################################
 
 
