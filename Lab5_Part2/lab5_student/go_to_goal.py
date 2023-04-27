@@ -169,6 +169,14 @@ async def run(robot: cozmo.robot.Robot):
             state = "kidnapped"
         if state == "kidnapped":
             print("the bot has been moved")
+            robot.move_lift(1.0)
+            time.sleep(.5)
+            robot.move_lift(-100.0)
+            time.sleep(.5)
+            robot.move_lift(1.0)
+            time.sleep(.5)
+            robot.move_lift(-100.0)
+            time.sleep(.5)
             time.sleep(2)
             await robot.drive_wheels(20, 20, None, None, 1.5)
             time.sleep(2)
@@ -180,7 +188,10 @@ async def run(robot: cozmo.robot.Robot):
             if check_kidnapped(robot):
                 state = "kidnapped"
                 continue
-            await robot.drive_wheels(50, 15, None, None, 2)
+            await robot.drive_wheels(-20, 20, None, None, 2)
+            if check_kidnapped(robot):
+                state = "kidnapped"
+                continue
             markers = await robust_find_markers(robot)
             localization_steps += 1
             (_, _, _, conf) = filter_update(pf, markers, robot)
