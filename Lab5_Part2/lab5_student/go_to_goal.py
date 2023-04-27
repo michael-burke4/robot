@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Michael Burke and Griffin Bjerke
 
 import cv2
 import cozmo
